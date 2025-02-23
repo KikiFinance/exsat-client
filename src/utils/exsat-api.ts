@@ -257,7 +257,7 @@ class ExsatApi {
       const balance = getAmountFromQuantity(returnValueData.balance);
       if (balance < 0.0001) {
         logger.error(
-          `The account[${this.accountName}] gas fee balance[${balance}] is insufficient. \nPlease recharge at ${NETWORK_CONFIG.recharge}`
+          `The account[${this.accountName}] gas fee balance[${balance}] is insufficient. Please recharge at ${NETWORK_CONFIG.recharge}`
         );
         process.exit(1);
       }
@@ -293,7 +293,7 @@ class ExsatApi {
       const balance = getAmountFromQuantity(returnValueData.balance);
       if (balance < 0.0001) {
         logger.warn(
-          `The account[${this.accountName}] gas fee balance[${balance}] is insufficient. \nPlease recharge at ${NETWORK_CONFIG.recharge}`
+          `The account[${this.accountName}] gas fee balance[${balance}] is insufficient. Please recharge at ${NETWORK_CONFIG.recharge}`
         );
       }
     } catch (e) {

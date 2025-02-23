@@ -1,7 +1,7 @@
 import cron from 'node-cron';
 import { getAccountInfo, getConfigPassword, getInputPassword } from '../utils/keystore';
 import { configureLogger, logger } from '../utils/logger';
-import { envCheck } from '../utils/common';
+import { envCheck, loadNetworkConfigurations } from '../utils/common';
 import ExsatApi from '../utils/exsat-api';
 import TableApi from '../utils/table-api';
 import { Client, ClientType } from '../utils/enumeration';
@@ -88,6 +88,7 @@ function setupCronJobs(jobs: ValidatorJobs) {
 }
 
 async function main() {
+  await loadNetworkConfigurations();
   configureLogger(Client.Validator);
   await envCheck(VALIDATOR_KEYSTORE_FILE);
 
