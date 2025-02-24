@@ -49,7 +49,7 @@ export async function loadNetworkConfigurations() {
       `https://raw.githubusercontent.com/exsat-network/configurations/refs/heads/main/src/${network}-network.json`
     );
 
-    if (!EXSAT_RPC_URLS) {
+    if (!EXSAT_RPC_URLS || EXSAT_RPC_URLS.length === 0) {
       // @ts-ignore
       EXSAT_RPC_URLS = response.data.native.nodes;
     }
