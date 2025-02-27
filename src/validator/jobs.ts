@@ -112,7 +112,7 @@ export class ValidatorJobs {
       const chainstate = await this.state.tableApi!.getChainstate();
       const blockcount = await getblockcount();
       const validatorInfo = await this.state.tableApi.getValidatorInfo(this.state.accountName);
-      let startEndorseHeight = Math.max(chainstate!.irreversible_height + 1, validatorInfo.latest_consensus_block);
+      let startEndorseHeight = Math.max(chainstate!.irreversible_height + 1, validatorInfo.latest_consensus_block + 1);
       for (let i = startEndorseHeight; i <= blockcount.result; i++) {
         let hash: string;
         try {
