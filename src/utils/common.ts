@@ -1,6 +1,6 @@
 import axios from 'axios';
 import fs from 'node:fs';
-import { BTC_RPC_URL, CHUNK_SIZE, EXSAT_RPC_URLS, NETWORK_CONFIG } from './config';
+import { BTC_RPC_URL, CHUNK_SIZE, EXSAT_RPC_URLS, NETWORK, NETWORK_CONFIG } from './config';
 import { logger } from './logger';
 import { getblockcount } from './bitcoin';
 import path from 'node:path';
@@ -30,10 +30,9 @@ export function getAmountFromQuantity(quantity: string): number {
  * @returns A promise that resolves to the data containing RPC URLs.
  */
 export async function getRpcUrls() {
-  const network = process.env.NETWORK || 'mainnet';
   try {
     const response = await axios.get(
-      `https://raw.githubusercontent.com/exsat-network/configurations/refs/heads/main/src/${network}-rpc.json`
+      `https://raw.githubusercontent.com/exsat-network/configurations/refs/heads/main/src/${NETWORK}-rpc.json`
     );
     return response.data.native.nodes;
   } catch (error) {
@@ -43,10 +42,9 @@ export async function getRpcUrls() {
 }
 
 export async function loadNetworkConfigurations() {
-  const network = process.env.NETWORK || 'mainnet';
   try {
     const response = await axios.get(
-      `https://raw.githubusercontent.com/exsat-network/configurations/refs/heads/main/src/${network}-network.json`
+      `https://raw.githubusercontent.com/exsat-network/configurations/refs/heads/main/src/${NETWORK}-network.json`
     );
 
     if (!EXSAT_RPC_URLS || EXSAT_RPC_URLS.length === 0) {
