@@ -47,7 +47,7 @@ export async function loadNetworkConfigurations() {
       `https://raw.githubusercontent.com/exsat-network/configurations/refs/heads/main/src/${NETWORK}-network.json`
     );
 
-    if (!EXSAT_RPC_URLS || EXSAT_RPC_URLS.length === 0) {
+    if (!EXSAT_RPC_URLS || EXSAT_RPC_URLS.length === 0 || !isValidUrl(EXSAT_RPC_URLS[0])) {
       // @ts-ignore
       EXSAT_RPC_URLS = response.data.native.nodes;
     }
@@ -74,14 +74,14 @@ export async function envCheck(keystoreFile: string) {
     logger.error('BTC_RPC_URL is not set');
     process.exit(1);
   }
-  if (EXSAT_RPC_URLS.length === 0) {
+  if (EXSAT_RPC_URLS.length === 0 || !isValidUrl(EXSAT_RPC_URLS[0])) {
     const result = await getRpcUrls();
     if (result) {
       // @ts-ignore
       EXSAT_RPC_URLS = result;
     }
   }
-  if (EXSAT_RPC_URLS.length === 0) {
+  if (EXSAT_RPC_URLS.length === 0 || !isValidUrl(EXSAT_RPC_URLS[0])) {
     logger.error('No valid EXSAT RPC URL found');
     process.exit(1);
   }
