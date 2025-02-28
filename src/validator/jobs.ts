@@ -78,7 +78,10 @@ export class ValidatorJobs {
       logger.info('Endorse task is running');
       const blockcountInfo = await getblockcount();
       const blockhashInfo = await getblockhash(blockcountInfo.result);
-      await this.checkAndSubmit(this.state.accountName, blockcountInfo.result, blockhashInfo.result);
+      const validatorInfo = await this.state.tableApi!.getValidatorInfo(this.state.accountName);
+      if (blockhashInfo.result > validatorInfo.latest_consensus_block) {
+        await this.checkAndSubmit(this.state.accountName, blockcountInfo.result, blockhashInfo.result);
+      }
     } catch (e) {
       const errorMessage = getErrorMessage(e);
       logger.info(`Endorse task info: ${errorMessage}`);
