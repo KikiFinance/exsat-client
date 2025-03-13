@@ -6,12 +6,23 @@ import { isValidUrl, retry, showInfo, updateEnvFile } from '../utils/common';
 import { Client, ClientType } from '../utils/enumeration';
 import { logger } from '../utils/logger';
 import { clearLines, inputWithCancel } from '../utils/input';
-import { getUserAccount, importFromMnemonic, importFromPrivateKey, initializeAccount } from './account';
+import { getUserAccount, importFromMnemonic, importFromPrivateKey, initializeAccount, batchGenerateAccounts } from './account';
 import { getAccountInfo, getBaseAccountInfo, getConfigPassword, getInputPassword } from '../utils/keystore';
+import { batchRegisterXsatValidator } from './register';
 import fs from 'node:fs';
 
 export async function notAccountMenu() {
   const menus = [
+    {
+      name: 'Batch Create New Account',
+      value: 'batch_create_account',
+      description: 'Batch Create New Account',
+    },
+    {
+      name: 'Batch Register XSAT validator',
+      value: 'batch_register_xsat_validator',
+      description: 'Batch Register XSAT validator',
+    },
     {
       name: 'Create New Account',
       value: 'create_account',
@@ -32,6 +43,12 @@ export async function notAccountMenu() {
   ];
   //
   const actions: { [key: string]: () => Promise<any> } = {
+    batch_create_account: async () => {
+      return await batchGenerateAccounts();
+    },
+    batch_register_xsat_validator: async () => {
+      return await batchRegisterXsatValidator();
+    },
     create_account: async () => {
       return await initializeAccount();
     },
@@ -50,7 +67,7 @@ export async function notAccountMenu() {
       message: 'Create a new account or use your exist account: ',
       choices: menus,
     });
-    res = await (actions[action] || (async () => {}))();
+    res = await (actions[action] || (async () => { }))();
   } while (!res);
 }
 
@@ -67,9 +84,9 @@ export async function updateMenu(versions, isDocker) {
   ];
   console.log(
     `${Font.fgCyan}${Font.bright}-----------------------------------------------\n` +
-      `Client Current Version: ${Font.reset}${Font.bright}${versions.current}${Font.reset}\n` +
-      Font.colorize(`Client Latest Version: ${versions.latest}`, Font.fgYellow) +
-      `${Font.fgCyan}${Font.bright}\n-----------------------------------------------${Font.reset}\n`
+    `Client Current Version: ${Font.reset}${Font.bright}${versions.current}${Font.reset}\n` +
+    Font.colorize(`Client Latest Version: ${versions.latest}`, Font.fgYellow) +
+    `${Font.fgCyan}${Font.bright}\n-----------------------------------------------${Font.reset}\n`
   );
   const action = await select({
     message: 'Select an Action: ',

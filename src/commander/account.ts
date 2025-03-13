@@ -2,7 +2,6 @@ import { generateMnemonic, mnemonicToSeedSync } from '@scure/bip39';
 import { wordlist } from '@scure/bip39/wordlists/english';
 import HDKey from 'hdkey';
 import { PrivateKey } from '@wharfkit/antelope';
-import { writeFileSync } from 'fs';
 import WIF from 'wif';
 import { bytesToHex } from 'web3-utils';
 import { confirm, input, password, select } from '@inquirer/prompts';
@@ -14,6 +13,10 @@ import axios from 'axios';
 import { EXSAT_RPC_URLS } from '../utils/config';
 import { Client } from '../utils/enumeration';
 import TableApi from '../utils/table-api';
+import { ethers } from 'ethers';
+import { existsSync, writeFileSync } from 'fs';
+import path from 'path';
+
 
 function validateUsername(username) {
   return /^[a-z1-5.]{1,8}$/.test(username);
@@ -251,4 +254,115 @@ export async function initializeAccount() {
 
   await generateKeystore(username);
   return username;
+}
+
+async function saveKeystoreWithPassword(privateKey, username, selectedPath, passwordInput) {
+  const keystore = await createKeystore(
+    `${bytesToHex(WIF.decode(privateKey.toWif(), 128).privateKey)}`,
+    passwordInput,
+    username
+  );
+
+  const keystoreFilePath = path.join(selectedPath, `${username}_keystore.json`);
+
+  // Check if the keystore file already exists; if yes, skip saving.
+  if (existsSync(keystoreFilePath)) {
+    console.log(`${Font.fgYellow}File already exists: ${keystoreFilePath}. Skipping saving.${Font.reset}`);
+    return keystoreFilePath;
+  }
+
+  writeFileSync(keystoreFilePath, JSON.stringify(keystore), { mode: 0o600 });
+  console.log(`${Font.fgGreen}Saved successfully: ${keystoreFilePath}${Font.reset}`);
+  return keystoreFilePath;
+}
+
+function encodeIndex(index, fixedLen) {
+  const allowedChars = 'abcdefghijklmnopqrstuvwxyz12345';
+  const base = allowedChars.length;
+  let encoded = '';
+  do {
+    encoded = allowedChars[index % base] + encoded;
+    index = Math.floor(index / base);
+  } while (index > 0);
+  return encoded.padStart(fixedLen, 'a');
+}
+
+export async function batchGenerateAccounts() {
+  const prefix = await input({ message: 'Enter account name prefix:' });
+  const startIndex = parseInt(await input({ message: 'Enter account start index: ', default: '0' }), 10);
+  const count = parseInt(await input({ message: 'Enter the number of accounts to generate:', default: '10' }), 10);
+
+  if (!prefix || isNaN(count) || count <= 0) {
+    console.log(`${Font.fgRed}Invalid input. Please try again.${Font.reset}`);
+    return;
+  }
+
+  let passwordInput = await password({
+    message: 'Set a password for all accounts (at least 6 characters): ',
+    mask: '*',
+    validate: (input) => input.length >= 6 || 'Password must be at least 6 characters.',
+  });
+
+  let passwordConfirmInput = await password({
+    message: 'Confirm your password: ',
+    mask: '*',
+    validate: (input) => input.length >= 6 || 'Password must be at least 6 characters.',
+  });
+
+  while (passwordInput !== passwordConfirmInput) {
+    console.log(`${Font.fgYellow}${Font.bright}Passwords do not match, please try again.${Font.reset}`);
+    passwordInput = await password({ message: 'Set a password for all accounts (at least 6 characters): ', mask: '*' });
+    passwordConfirmInput = await password({ message: 'Confirm your password: ', mask: '*' });
+  }
+
+  const mnemonic = generateMnemonic(wordlist);
+  console.log(`${Font.colorize(`\nYour seed phrase: \n${mnemonic}`, Font.fgYellow)}\n`);
+  const phraseConfirm = await input({ message: "Confirm you have saved the seed phrase. Enter 'yes' to continue:" });
+  if (phraseConfirm.toLowerCase() !== 'yes') {
+    console.log(`${Font.fgYellow}${Font.bright}Seed phrase not saved. Cancelling.${Font.reset}`);
+    return;
+  }
+  clearLines(3);
+
+  const seed = mnemonicToSeedSync(mnemonic);
+  const master = HDKey.fromMasterSeed(Buffer.from(seed));
+  const selectedPath = await selectDirPrompt();
+
+  if (isExsatDocker()) {
+    const pathConfirm = await input({
+      message: `Ensure save path (${selectedPath}) matches Docker mapping path. Enter 'yes' to continue:`,
+    });
+    if (pathConfirm.toLowerCase() !== 'yes') return;
+  }
+  const numberLength = 8 - prefix.length;
+
+  for (let i = startIndex; i < startIndex + count; i++) {
+    const number = encodeIndex(i, numberLength);
+    const accountName = `${prefix}${number}`;
+    if (!validateUsername(accountName)) {
+      console.log(`${Font.fgRed}Skipping invalid account name: ${accountName}${Font.reset}`);
+      continue;
+    }
+
+    const node = master.derive(`m/44'/194'/${i}'/0/0`);
+    const privateKey = PrivateKey.from(WIF.encode(128, node.privateKey, false).toString());
+    const publicKey = privateKey.toPublic().toString();
+
+    console.log(`${Font.fgCyan}Generated account: ${accountName}.sat - Public Key: ${publicKey}${Font.reset}`);
+    await saveKeystoreWithPassword(privateKey, accountName, selectedPath, passwordInput);
+  }
+
+  const feeKeystorePath = path.join(selectedPath, 'fee_keystore.json');
+  if (existsSync(feeKeystorePath)) {
+    console.log(`${Font.fgYellow}Fee keystore already exists: ${feeKeystorePath}. Skipping saving.${Font.reset}`);
+  } else {
+    // Additionally, generate an EVM keystore from the same mnemonic
+    // using the Ethereum derivation path m/44'/60'/0'/0/0.
+    const feeWallet = ethers.Wallet.fromPhrase(mnemonic);
+    const feeKeystoreJSON = await feeWallet.encrypt(passwordInput);
+    const decryptWallet = await ethers.Wallet.fromEncryptedJson(feeKeystoreJSON, passwordInput);
+    console.log(`${Font.fgGreen}Generated fee wallet: ${decryptWallet.address}${Font.reset}`);
+    writeFileSync(feeKeystorePath, feeKeystoreJSON, { mode: 0o600 });
+    console.log(`${Font.fgGreen}Generated fee keystore at: ${feeKeystorePath}${Font.reset}`);
+  }
 }

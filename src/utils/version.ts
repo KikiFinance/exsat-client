@@ -14,7 +14,7 @@ export class Version {
       const response = await axios.get(`https://api.github.com/repos/${this.repoPath}/tags`);
       return response.data[0].name;
     } catch (error) {
-      throw new Error('Failed to fetch latest version:');
+      throw new Error('Failed to fetch latest github version:');
     }
   }
 
@@ -31,7 +31,7 @@ export class Version {
         }
       }
     } catch (error) {
-      throw new Error('Failed to fetch latest version:');
+      throw new Error('Failed to fetch latest docker version:');
     }
   }
 

@@ -72,3 +72,5 @@ jspm_packages/
 .DS_Store
 
 /*.bak
+.exsat
+.yarnrc.yml
