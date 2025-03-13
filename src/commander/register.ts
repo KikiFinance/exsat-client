@@ -107,13 +107,9 @@ export async function batchRegisterXsatValidator() {
             chainId: 840000,
             nonce: currentNonce,
             gasPrice,
-            gasLimit: 0n,
+            gasLimit: 23120n,
           };
           currentNonce++; // Increment nonce for the next transaction.
-
-          // Set a fixed gas limit (can be replaced with an estimated gas limit if needed).
-          const fixedGasLimit = ethers.parseUnits("23120", "wei");
-          tx.gasLimit = fixedGasLimit;
 
           // Populate any missing fields and sign the transaction.
           const populatedTx = await wallet.populateTransaction(tx);

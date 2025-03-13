@@ -9,6 +9,7 @@ import { clearLines, inputWithCancel } from '../utils/input';
 import { getUserAccount, importFromMnemonic, importFromPrivateKey, initializeAccount, batchGenerateAccounts } from './account';
 import { getAccountInfo, getBaseAccountInfo, getConfigPassword, getInputPassword } from '../utils/keystore';
 import { batchRegisterXsatValidator } from './register';
+import { batchRechargeXsatValidator } from './recharge';
 import fs from 'node:fs';
 
 export async function notAccountMenu() {
@@ -22,6 +23,11 @@ export async function notAccountMenu() {
       name: 'Batch Register XSAT validator',
       value: 'batch_register_xsat_validator',
       description: 'Batch Register XSAT validator',
+    },
+    {
+      name: 'Batch Recharge XSAT validator',
+      value: 'batch_recharge_xsat_validator',
+      description: 'Batch Recharge XSAT validator',
     },
     {
       name: 'Create New Account',
@@ -48,6 +54,9 @@ export async function notAccountMenu() {
     },
     batch_register_xsat_validator: async () => {
       return await batchRegisterXsatValidator();
+    },
+    batch_recharge_xsat_validator: async () => {
+      return await batchRechargeXsatValidator();
     },
     create_account: async () => {
       return await initializeAccount();
