@@ -32,6 +32,10 @@ class ExsatApi {
     this.walletPlugin = new WalletPluginPrivateKey(accountInfo.privateKey);
   }
 
+  public getAccountName() {
+    return this.accountName;
+  }
+
   public async initialize(): Promise<void> {
     const validNodeFound = await this.exsatNodesManager.findValidNode();
     if (!validNodeFound) {

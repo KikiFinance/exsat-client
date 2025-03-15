@@ -109,6 +109,41 @@ export async function envCheck(clientType: ClientType) {
 }
 
 /**
+ * Checks the batch validator environment for required configurations and exits the process if any are missing.
+ */
+export async function batchValidatorEnvCheck() {
+  if (!fs.existsSync(process.env.VALIDATOR_KEYSTORE_DIR)) {
+    logger.error(
+      `No validator keystore dir found, please config .env file first`
+    );
+    process.exit(1);
+  }
+  if (!BTC_RPC_URL) {
+    logger.error('BTC_RPC_URL is not set');
+    process.exit(1);
+  }
+  if (!EXSAT_RPC_URLS || EXSAT_RPC_URLS.length === 0 || !isValidUrl(EXSAT_RPC_URLS[0])) {
+    const result = await getRpcUrls();
+    if (result) {
+      setExsatRpcUrls(result);
+    }
+  }
+  if (!EXSAT_RPC_URLS || EXSAT_RPC_URLS.length === 0 || !isValidUrl(EXSAT_RPC_URLS[0])) {
+    logger.error('No valid EXSAT RPC URL found');
+    process.exit(1);
+  }
+  const blockcountInfo = await getblockcount();
+  if (blockcountInfo.error) {
+    logger.error('Failed to get the block count from the Bitcoin network');
+    process.exit(1);
+  }
+  if (CHUNK_SIZE < 102400) {
+    logger.error('The CHUNK_SIZE must be greater than 102400 in .env file');
+    process.exit(1);
+  }
+}
+
+/**
  * Try calling the function repeatedly
  * @param fn - The function to be called.
  * @param retries - The number of retries.
