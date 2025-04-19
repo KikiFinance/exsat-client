@@ -421,17 +421,14 @@ export async function batchChangeStakeAddress() {
 
     const { exsatApis } = await setupApis(accountInfos);
     for (const exsatApi of exsatApis) {
-        exsatApi.getAccountName
-
+        const accountName = exsatApi.getAccountName();
         const data = {
-            validator: exsatApi.getAccountName,
+            validator: accountName,
             stake_addr: evmAddressToChecksum(stakeAddress),
         };
-        console.log(`Changing stake address for ${exsatApi.getAccountName} to ${stakeAddress}`);
-
         try {
             await exsatApi.executeAction(ContractName.endrmng, 'evmsetstaker', data);
-            logger.info(`${exsatApi.getAccountName} set stake address: ${stakeAddress} successfully`);
+            logger.info(`${accountName} set stake address: ${stakeAddress} successfully`);
             return true;
         } catch (error) {
             return false;
