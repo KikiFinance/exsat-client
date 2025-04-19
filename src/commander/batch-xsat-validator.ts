@@ -137,7 +137,11 @@ export async function batchRechargeXsatValidator() {
         const rechargeInfos: { accountName: string; rechargeAmount: bigint }[] = [];
         for (const accountName of satAccounts) {
             let btcBalanceStr = await tableApi.getAccountBalance(accountName);
-            btcBalanceStr = btcBalanceStr.replace('BTC', '').trim();
+            if (btcBalanceStr === 0) {
+                btcBalanceStr = "0";
+            } else {
+                btcBalanceStr = btcBalanceStr.replace('BTC', '').trim();
+            }
             const balance = ethers.parseUnits(btcBalanceStr, "ether");
             let rechargeAmount = targetBalance - balance;
 
