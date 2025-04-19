@@ -57,7 +57,7 @@ export async function batchAccountMenu() {
             return await batchRechargeXsatValidator();
         },
         batch_change_stake_address: async () => {
-            return await batchRegisterXsatValidator();
+            return await batchChangeStakeAddress();
         },
         quit: async () => process.exit(0),
     };
@@ -409,6 +409,15 @@ export async function batchChangeStakeAddress() {
                 return getAccountInfo(filePath, VALIDATOR_KEYSTORE_DIR_PASSWORD);
             })
     );
+
+    const accountNames = accountInfos.map(accountInfo => accountInfo.accountName);
+    console.log("Accounts read:", accountNames);
+
+    const changeConfirm = await input({ message: "Confirm to change stake address. Enter 'yes' to continue:" });
+    if (changeConfirm.toLowerCase() !== 'yes') {
+        console.log("change stake address cancelled.");
+        return;
+    }
 
     const { exsatApis } = await setupApis(accountInfos);
     for (const exsatApi of exsatApis) {
