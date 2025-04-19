@@ -384,10 +384,6 @@ export async function batchRegisterXsatValidator() {
 
 export async function batchChangeStakeAddress() {
 
-    // 1. Prompt the user for the keystore directory.
-    const keystoreDir = await input({ message: 'Enter keystore path:' });
-
-    // 2. Prompt for the EVM Stake address and validate it.
     const rawStakeAddress = await input({ message: 'Enter EVM Stake address:' });
     let stakeAddress: string;
     try {
