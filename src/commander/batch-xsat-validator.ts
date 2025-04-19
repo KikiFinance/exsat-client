@@ -429,10 +429,10 @@ export async function batchChangeStakeAddress() {
         try {
             await exsatApi.executeAction(ContractName.endrmng, 'evmsetstaker', data);
             logger.info(`${accountName} set stake address: ${stakeAddress} successfully`);
-            return true;
         } catch (error) {
             return false;
         }
     }
+    return true;
 
 }
