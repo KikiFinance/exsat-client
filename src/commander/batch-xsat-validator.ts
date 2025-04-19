@@ -427,6 +427,7 @@ export async function batchChangeStakeAddress() {
             validator: exsatApi.getAccountName,
             stake_addr: evmAddressToChecksum(stakeAddress),
         };
+        console.log(`Changing stake address for ${exsatApi.getAccountName} to ${stakeAddress}`);
 
         try {
             await exsatApi.executeAction(ContractName.endrmng, 'evmsetstaker', data);
