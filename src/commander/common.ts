@@ -8,27 +8,12 @@ import { logger } from '../utils/logger';
 import { clearLines, inputWithCancel } from '../utils/input';
 import { getUserAccount, importFromMnemonic, importFromPrivateKey, initializeAccount, batchGenerateAccounts } from './account';
 import { getAccountInfo, getBaseAccountInfo, getConfigPassword, getInputPassword } from '../utils/keystore';
-import { batchRegisterXsatValidator } from './register';
-import { batchRechargeXsatValidator } from './recharge';
 import fs from 'node:fs';
+import { batchAccountMenu } from './batch-xsat-validator';
 
 export async function notAccountMenu() {
   const menus = [
-    {
-      name: 'Batch Create New Account',
-      value: 'batch_create_account',
-      description: 'Batch Create New Account',
-    },
-    {
-      name: 'Batch Register XSAT validator',
-      value: 'batch_register_xsat_validator',
-      description: 'Batch Register XSAT validator',
-    },
-    {
-      name: 'Batch Recharge XSAT validator',
-      value: 'batch_recharge_xsat_validator',
-      description: 'Batch Recharge XSAT validator',
-    },
+  
     {
       name: 'Create New Account',
       value: 'create_account',
@@ -44,20 +29,17 @@ export async function notAccountMenu() {
       value: 'import_private_key',
       description: 'Import Private Key',
     },
+    {
+      name: 'Manage Batch XSAT Validator',
+      value: 'batch_xsat_validator',
+      description: 'Manage Batch XSAT Validator',
+    },
     new Separator(),
     { name: 'Quit', value: 'quit', description: 'Quit' },
   ];
   //
   const actions: { [key: string]: () => Promise<any> } = {
-    batch_create_account: async () => {
-      return await batchGenerateAccounts();
-    },
-    batch_register_xsat_validator: async () => {
-      return await batchRegisterXsatValidator();
-    },
-    batch_recharge_xsat_validator: async () => {
-      return await batchRechargeXsatValidator();
-    },
+   
     create_account: async () => {
       return await initializeAccount();
     },
@@ -66,6 +48,9 @@ export async function notAccountMenu() {
     },
     import_private_key: async () => {
       return await importFromPrivateKey();
+    },
+    batch_xsat_validator: async () => {
+      return await batchAccountMenu();
     },
     quit: async () => process.exit(0),
   };

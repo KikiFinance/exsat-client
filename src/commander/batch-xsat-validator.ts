@@ -1,0 +1,431 @@
+import { select, Separator } from '@inquirer/prompts';
+import process from 'node:process';
+import { batchGenerateAccounts } from './account';
+import fs from 'fs/promises';
+import path from 'path';
+import { ethers } from 'ethers';
+import { input, password } from '@inquirer/prompts';
+import { getAccountInfo } from '../utils/keystore';
+import { EXSAT_EVM_RPC_URL } from '../utils/config';
+import { getUserAccount } from './account';
+import { evmAddressToChecksum } from '../utils/key';
+import ExsatApi from '../utils/exsat-api';
+import { ContractName } from '../utils/enumeration';
+import TableApi from '../utils/table-api';
+import {
+    VALIDATOR_KEYSTORE_DIR,
+    VALIDATOR_KEYSTORE_DIR_PASSWORD
+} from '../utils/config';
+import { setupApis } from '../batch-xsat-validator';
+import { logger } from '../utils/logger';
+
+export async function batchAccountMenu() {
+    const menus = [
+
+        {
+            name: 'Batch Create New Account',
+            value: 'batch_create_account',
+            description: 'Batch Create New Account',
+        },
+        {
+            name: 'Batch Register XSAT validator',
+            value: 'batch_register_xsat_validator',
+            description: 'Batch Register XSAT validator',
+        },
+        {
+            name: 'Batch Recharge XSAT validator',
+            value: 'batch_recharge_xsat_validator',
+            description: 'Batch Recharge XSAT validator',
+        },
+        {
+            name: 'Batch Change XSAT stake address',
+            value: 'batch_change_stake_address',
+            description: 'Batch Change XSAT stake address',
+        },
+        new Separator(),
+        { name: 'Quit', value: 'quit', description: 'Quit' },
+    ];
+    //
+    const actions: { [key: string]: () => Promise<any> } = {
+        batch_create_account: async () => {
+            return await batchGenerateAccounts();
+        },
+        batch_register_xsat_validator: async () => {
+            return await batchRegisterXsatValidator();
+        },
+        batch_recharge_xsat_validator: async () => {
+            return await batchRechargeXsatValidator();
+        },
+        batch_change_stake_address: async () => {
+            return await batchRegisterXsatValidator();
+        },
+        quit: async () => process.exit(0),
+    };
+
+    let res;
+    do {
+        const action = await select({
+            message: 'Create a new account or use your exist account: ',
+            choices: menus,
+        });
+        res = await (actions[action] || (async () => { }))();
+    } while (!res);
+}
+
+export async function batchRechargeXsatValidator() {
+    const tableApi = await TableApi.getInstance();
+
+    try {
+        // 1. Prompt the user for the keystore directory path
+        const keystoreDir = await input({ message: 'Enter keystore path:' });
+
+        // 2. Read keystore files from the directory (excluding fee_keystore.json)
+        // and generate a list of accounts (with .sat extension)
+        const files = await fs.readdir(keystoreDir);
+        const satAccounts = files
+            .filter(file => file.endsWith('_keystore.json') && file !== 'fee_keystore.json')
+            .map(file => file.replace('_keystore.json', '.sat'));
+        if (satAccounts.length === 0) {
+            console.log('No valid account files found.');
+            return;
+        }
+        console.log("Accounts read:", satAccounts);
+
+        // 3. Ensure fee_keystore.json exists and read its content
+        const feeKeystorePath = path.join(keystoreDir, 'fee_keystore.json');
+        try {
+            await fs.access(feeKeystorePath);
+        } catch {
+            throw new Error(`Keystore file not found: ${feeKeystorePath}`);
+        }
+        const feeKeystoreContent = await fs.readFile(feeKeystorePath, 'utf8');
+
+        // 4. Prompt the user for the keystore password (minimum 6 characters) and decrypt feeWallet
+        const keystorePassword = await password({
+            message: 'Enter keystore password:',
+            mask: '*',
+            validate: input => input.length >= 6 || 'Password must be at least 6 characters.',
+        });
+        const feeWallet = await ethers.Wallet.fromEncryptedJson(feeKeystoreContent, keystorePassword);
+        console.log(`Fee wallet address: ${feeWallet.address}`);
+        console.log(`EXSAT_EVM_RPC_URL: ${EXSAT_EVM_RPC_URL}`);
+
+        // 5. Initialize the provider, connect the wallet, and verify the network connection
+        const provider = new ethers.JsonRpcProvider(EXSAT_EVM_RPC_URL);
+        const wallet = feeWallet.connect(provider);
+        console.log(`Connected wallet address: ${wallet.address}`);
+
+        try {
+            const network = await provider.getNetwork();
+            console.log("Connected to network:", JSON.stringify(network));
+        } catch (netError) {
+            console.error("Error connecting to network:", netError);
+            throw netError;
+        }
+
+        // 6. Retrieve the initial nonce and gasPrice
+        let currentNonce = await provider.getTransactionCount(wallet.address, "pending");
+        const { gasPrice } = await provider.getFeeData();
+
+        // 7. Set transaction parameters
+        const recipient = '0xbBbBbBbBbbbbBbbbbBbBbbBBbaB0894D80EE0D90';
+        const inputTargetBalance = await input({ message: "Input target balance (BTC):" });
+        const targetBalance = ethers.parseUnits(inputTargetBalance, "ether");
+        console.log(`Target balance: ${inputTargetBalance} BTC`);
+
+        // 8. Iterate through each account and calculate the required recharge amount
+        const rechargeInfos: { accountName: string; rechargeAmount: bigint }[] = [];
+        for (const accountName of satAccounts) {
+            let btcBalanceStr = await tableApi.getAccountBalance(accountName);
+            btcBalanceStr = btcBalanceStr.replace('BTC', '').trim();
+            const balance = ethers.parseUnits(btcBalanceStr, "ether");
+            let rechargeAmount = targetBalance - balance;
+
+            // If the difference is less than 10000 wei, no recharge is needed
+            if (rechargeAmount < 10000n) {
+                rechargeAmount = 0n;
+            }
+            console.log(
+                `Account ${accountName} balance: ${btcBalanceStr} BTC, recharge amount: ${ethers.formatUnits(rechargeAmount, "ether")} BTC`
+            );
+            if (rechargeAmount > 0n) {
+                rechargeInfos.push({ accountName, rechargeAmount });
+            }
+        }
+
+        // Confirm whether to proceed with recharging the accounts
+        const rechargeConfirm = await input({ message: "Confirm to recharge accounts. Enter 'yes' to continue:" });
+        if (rechargeConfirm.toLowerCase() !== 'yes') {
+            console.log("Recharge cancelled.");
+            return;
+        }
+
+        // 9. Process recharge transactions for each account
+        for (const { accountName, rechargeAmount } of rechargeInfos) {
+            try {
+                const existingAccount = await getUserAccount(accountName);
+                if (!existingAccount) {
+                    console.log(`Account ${accountName} does not exist, skipping recharge.`);
+                    continue;
+                }
+                if (rechargeAmount <= 10000n) {
+                    console.log(`Recharge amount for ${accountName} is less than 10000 wei, skipping recharge.`);
+                    continue;
+                }
+
+                // Convert accountName to hex encoding for transaction data
+                const data = '0x' + Buffer.from(accountName, 'utf8').toString('hex');
+
+                const tx = {
+                    from: wallet.address,
+                    to: recipient,
+                    value: rechargeAmount,
+                    data,
+                    chainId: 840000,
+                    nonce: currentNonce,
+                    gasPrice,
+                    gasLimit: 21192n, // Fixed gas limit; adjust as needed
+                };
+                currentNonce++; // Update nonce
+
+                // Populate missing fields and sign the transaction
+                const populatedTx = await wallet.populateTransaction(tx);
+                const signedTx = await wallet.signTransaction(populatedTx);
+                console.log(`Recharging ${accountName}, signed transaction: ${signedTx}`);
+
+                // Broadcast the transaction
+                const response = await fetch(EXSAT_EVM_RPC_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        jsonrpc: '2.0',
+                        method: 'eth_sendRawTransaction',
+                        params: [signedTx],
+                        id: 1,
+                    }),
+                });
+                const resJson = await response.json();
+                if (resJson.error) {
+                    console.error(`Failed to broadcast transaction for ${accountName}:`, resJson.error);
+                } else {
+                    console.log(`Transaction broadcast for ${accountName}, hash: ${resJson.result}`);
+                }
+            } catch (txError) {
+                console.error(`Error processing ${accountName}:`, txError);
+            }
+        }
+
+        console.log("All accounts have been processed.");
+    } catch (error) {
+        console.error("Error during batch recharge process:", error);
+    }
+}
+
+
+export async function batchRegisterXsatValidator() {
+    const tableApi = await TableApi.getInstance();
+
+    try {
+        // 1. Prompt the user for the keystore directory.
+        const keystoreDir = await input({ message: 'Enter keystore path:' });
+
+        // 2. Prompt for the EVM Stake address and validate it.
+        const rawStakeAddress = await input({ message: 'Enter EVM Stake address:' });
+        let stakeAddress: string;
+        try {
+            stakeAddress = ethers.getAddress(rawStakeAddress);
+        } catch (error) {
+            console.error("Invalid EVM Stake address");
+            return;
+        }
+
+        // 3. Read all keystore files in the directory (excluding fee_keystore.json)
+        // and generate a list of account names with a ".sat" extension.
+        const files = await fs.readdir(keystoreDir);
+        const satAccounts = files
+            .filter(file => file.endsWith('_keystore.json') && file !== 'fee_keystore.json')
+            .map(file => file.replace('_keystore.json', '.sat'));
+        console.log("Accounts read:", satAccounts);
+
+        // 4. Verify that fee_keystore.json exists and read its content.
+        const feeKeystorePath = path.join(keystoreDir, 'fee_keystore.json');
+        try {
+            await fs.access(feeKeystorePath);
+        } catch {
+            throw new Error(`Keystore file not found: ${feeKeystorePath}`);
+        }
+        const feeKeystoreContent = await fs.readFile(feeKeystorePath, 'utf8');
+
+        // 5. Prompt for the keystore password (minimum 6 characters) and decrypt the feeWallet.
+        const keystorePassword = await password({
+            message: 'Enter keystore password:',
+            mask: '*',
+            validate: input => input.length >= 6 || 'Password must be at least 6 characters.',
+        });
+        const feeWallet = await ethers.Wallet.fromEncryptedJson(feeKeystoreContent, keystorePassword);
+        console.log(`Fee wallet address: ${feeWallet.address}`);
+        console.log(`EXSAT_EVM_RPC_URL: ${EXSAT_EVM_RPC_URL}`);
+
+        const registerConfirm = await input({ message: "Confirm to register accounts. Enter 'yes' to continue:" });
+        if (registerConfirm.toLowerCase() !== 'yes') {
+            console.log("Registration cancelled.");
+            return;
+        }
+
+        // 6. Initialize the provider, connect the wallet, and verify the network connection.
+        const provider = new ethers.JsonRpcProvider(EXSAT_EVM_RPC_URL);
+        const wallet = feeWallet.connect(provider);
+        console.log(`Connected wallet: ${wallet.address}`);
+        try {
+            const network = await provider.getNetwork();
+            console.log("Connected to network:", JSON.stringify(network));
+        } catch (error) {
+            console.error("Error connecting to network:", error);
+        }
+
+        // 7. Get the initial nonce and gas price.
+        let currentNonce = await provider.getTransactionCount(wallet.address, "pending");
+        const feeData = await provider.getFeeData();
+        const gasPrice = feeData.gasPrice;
+
+        // 8. Set the transaction parameters (recipient address and transaction value).
+        const recipient = '0xbBBbBbBbbbBBBbBbbBBbbBBBc3993d541Dc1b200';
+        const value = ethers.parseUnits("0.000001", "ether");
+
+        // 9. Process each account individually.
+        for (const accountName of satAccounts) {
+            // Determine the keystore path for the account.
+            const baseName = accountName.replace('.sat', '');
+            const accountKeystorePath = path.join(keystoreDir, `${baseName}_keystore.json`);
+            const accountInfo = await getAccountInfo(accountKeystorePath, keystorePassword);
+            if (!accountInfo.publicKey) {
+                throw new Error(`Failed to retrieve publicKey for ${accountName}`);
+            }
+
+            try {
+                // Check if the account is already registered; if not, broadcast the transaction.
+                const existingAccount = await getUserAccount(accountName);
+                if (!existingAccount) {
+                    // Build the transaction data as a hex-encoded string: "accountName-publicKey".
+                    const dataString = `${accountName}-${accountInfo.publicKey}`;
+                    const data = '0x' + Buffer.from(dataString, 'utf8').toString('hex');
+
+                    // Build the transaction object with a specified nonce and gas price, and set gasLimit temporarily to 0.
+                    const tx: any = {
+                        from: wallet.address,
+                        to: recipient,
+                        value,
+                        data,
+                        chainId: 840000,
+                        nonce: currentNonce,
+                        gasPrice,
+                        gasLimit: 23120n,
+                    };
+                    currentNonce++; // Increment nonce for the next transaction.
+
+                    // Populate any missing fields and sign the transaction.
+                    const populatedTx = await wallet.populateTransaction(tx);
+                    const signedTx = await wallet.signTransaction(populatedTx);
+                    console.log(`Registering ${accountName}, signed transaction: ${signedTx}`);
+
+                    // Broadcast the signed transaction.
+                    const response = await fetch(EXSAT_EVM_RPC_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            jsonrpc: '2.0',
+                            method: 'eth_sendRawTransaction',
+                            params: [signedTx],
+                            id: 1,
+                        }),
+                    });
+                    const resJson = await response.json();
+                    if (resJson.error) {
+                        console.error(`Failed to broadcast transaction for ${accountName}:`, resJson.error);
+                    } else {
+                        console.log(`Transaction broadcast for ${accountName}, hash: ${resJson.result}`);
+                    }
+                } else {
+                    console.log(`Account ${accountName} already registered, skipping transaction.`);
+                }
+
+                // Check if the validator is already registered.
+                const validatorInfo = await tableApi.getValidatorInfo(accountName);
+                if (!validatorInfo) {
+                    // Initialize ExsatApi and perform validator registration.
+                    const exsatApi = new ExsatApi(accountInfo);
+                    await exsatApi.initialize();
+                    const xsatValidatorData = {
+                        validator: accountName,
+                        role: 1,
+                        stake_addr: evmAddressToChecksum(stakeAddress),
+                        reward_addr: null,
+                        commission_rate: null,
+                    };
+                    try {
+                        await exsatApi.executeAction(ContractName.endrmng, 'newregvldtor', xsatValidatorData);
+                        console.log(`Validator ${accountName} registered successfully.`);
+                    } catch (txError) {
+                        console.error(`Failed to register validator for ${accountName}:`, txError);
+                    }
+                } else {
+                    console.log(`Validator ${accountName} already registered, skipping registration.`);
+                }
+            } catch (error) {
+                console.error(`Error processing account ${accountName}:`, error);
+            }
+        }
+
+        console.log("All accounts processed.");
+    } catch (error) {
+        console.error("Error in batch registration:", error);
+    }
+}
+
+export async function batchChangeStakeAddress() {
+
+    // 1. Prompt the user for the keystore directory.
+    const keystoreDir = await input({ message: 'Enter keystore path:' });
+
+    // 2. Prompt for the EVM Stake address and validate it.
+    const rawStakeAddress = await input({ message: 'Enter EVM Stake address:' });
+    let stakeAddress: string;
+    try {
+        stakeAddress = ethers.getAddress(rawStakeAddress);
+    } catch (error) {
+        console.error("Invalid EVM Stake address");
+        return;
+    }
+
+    // Read all keystore files from the directory
+    const keystoreFiles = await fs.readdir(VALIDATOR_KEYSTORE_DIR);
+
+    // Filter and process keystore files concurrently (exclude fee_keystore.json)
+    const accountInfos = await Promise.all(
+        keystoreFiles
+            .filter(file => file.endsWith('_keystore.json') && file !== 'fee_keystore.json')
+            .map(async (file) => {
+                const filePath = path.join(VALIDATOR_KEYSTORE_DIR, file);
+                return getAccountInfo(filePath, VALIDATOR_KEYSTORE_DIR_PASSWORD);
+            })
+    );
+
+    const { exsatApis } = await setupApis(accountInfos);
+    for (const exsatApi of exsatApis) {
+        exsatApi.getAccountName
+
+        const data = {
+            validator: exsatApi.getAccountName,
+            stake_addr: evmAddressToChecksum(stakeAddress),
+        };
+
+        try {
+            await exsatApi.executeAction(ContractName.endrmng, 'evmsetstaker', data);
+            logger.info(`${exsatApi.getAccountName} set stake address: ${stakeAddress} successfully`);
+            return true;
+        } catch (error) {
+            return false;
+        }
+    }
+
+}

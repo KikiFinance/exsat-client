@@ -29,7 +29,7 @@ export class BatchValidatorState {
 /**
  * Initializes all Exsat APIs concurrently and retrieves the table API.
  */
-async function setupApis(accountInfos: any[]): Promise<{
+export async function setupApis(accountInfos: any[]): Promise<{
   exsatApis: ExsatApi[];
   tableApi: TableApi;
 }> {
