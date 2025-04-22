@@ -115,13 +115,8 @@ export async function batchRechargeXsatValidator() {
         const wallet = feeWallet.connect(provider);
         console.log(`Connected wallet address: ${wallet.address}`);
 
-        try {
-            const network = await provider.getNetwork();
-            console.log("Connected to network:", JSON.stringify(network));
-        } catch (netError) {
-            console.error("Error connecting to network:", netError);
-            throw netError;
-        }
+        const network = await provider.getNetwork();
+        console.log("Connected to network:", JSON.stringify(network));
 
         // 6. Retrieve the initial nonce and gasPrice
         let currentNonce = await provider.getTransactionCount(wallet.address, "pending");
@@ -185,7 +180,7 @@ export async function batchRechargeXsatValidator() {
                     to: recipient,
                     value: rechargeAmount,
                     data,
-                    chainId: 840000,
+                    chainId: network.chainId,
                     nonce: currentNonce,
                     gasPrice,
                     gasLimit: 21192n, // Fixed gas limit; adjust as needed
@@ -280,12 +275,10 @@ export async function batchRegisterXsatValidator() {
         const provider = new ethers.JsonRpcProvider(EXSAT_EVM_RPC_URL);
         const wallet = feeWallet.connect(provider);
         console.log(`Connected wallet: ${wallet.address}`);
-        try {
-            const network = await provider.getNetwork();
-            console.log("Connected to network:", JSON.stringify(network));
-        } catch (error) {
-            console.error("Error connecting to network:", error);
-        }
+        const network = await provider.getNetwork();
+
+        console.log("Connected to network:", JSON.stringify(network));
+
 
         // 7. Get the initial nonce and gas price.
         let currentNonce = await provider.getTransactionCount(wallet.address, "pending");
@@ -320,7 +313,7 @@ export async function batchRegisterXsatValidator() {
                         to: recipient,
                         value,
                         data,
-                        chainId: 840000,
+                        chainId: network.chainId,
                         nonce: currentNonce,
                         gasPrice,
                         gasLimit: 23120n,
