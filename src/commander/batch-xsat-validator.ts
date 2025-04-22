@@ -318,6 +318,7 @@ export async function batchRegisterXsatValidator() {
                         gasPrice,
                         gasLimit: 23120n,
                     };
+                    console.log(`Registering ${accountName} value=${value} wei`);
                     currentNonce++; // Increment nonce for the next transaction.
 
                     // Populate any missing fields and sign the transaction.
