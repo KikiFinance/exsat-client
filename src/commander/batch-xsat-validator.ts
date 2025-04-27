@@ -309,6 +309,7 @@ export async function batchRegisterXsatValidator() {
                     const dataString = `${accountName}-${accountInfo.publicKey}`;
                     const data = '0x' + Buffer.from(dataString, 'utf8').toString('hex');
                     console.log(`Data for ${accountName}:`, data);
+                    console.log(`recipient: ${recipient}, value: ${value}`);
 
                     // 10.1.2 Construct transaction with fixed gas
                     const tx: any = {
