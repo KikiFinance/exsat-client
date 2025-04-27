@@ -275,6 +275,9 @@ export async function batchRegisterXsatValidator() {
         const provider = new ethers.JsonRpcProvider(EXSAT_EVM_RPC_URL);
         const wallet = feeWallet.connect(provider);
         console.log(`Connected wallet: ${wallet.address}`);
+
+        const balanceWei = await provider.getBalance(wallet.address);
+        console.log('Wallet balance:', ethers.formatEther(balanceWei), 'ETH');
         const network = await provider.getNetwork();
         console.log("Connected to network:", JSON.stringify(network));
 
