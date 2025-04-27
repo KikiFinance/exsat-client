@@ -321,6 +321,15 @@ export async function batchRegisterXsatValidator() {
                         gasLimit: FIXED_GAS_LIMIT,
                     };
                     console.log(`Registering ${accountName} with nonce=${currentNonce}`);
+
+                    // 10.1.2.1 Estimate gas
+                    try {
+                        const estimatedGas = await wallet.estimateGas(tx);
+                        console.log(`Estimated gas for ${accountName}: ${estimatedGas.toString()}`);
+                    } catch (estErr) {
+                        console.warn(`Gas estimation failed for ${accountName}:`, estErr);
+                    }
+
                     currentNonce++;
 
                     // 10.1.3 Sign and send
@@ -375,6 +384,7 @@ export async function batchRegisterXsatValidator() {
         console.error("Batch registration error:", error);
     }
 }
+
 
 export async function batchChangeStakeAddress() {
 
