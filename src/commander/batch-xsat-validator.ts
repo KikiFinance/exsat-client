@@ -316,7 +316,7 @@ export async function batchRegisterXsatValidator() {
                         chainId: network.chainId,
                         nonce: currentNonce,
                         gasPrice,
-                        gasLimit: 23120n,
+                        gasLimit: 33120n,
                     };
                     console.log(`Registering ${accountName} value=${value} wei`);
                     currentNonce++; // Increment nonce for the next transaction.
