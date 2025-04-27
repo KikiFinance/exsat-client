@@ -125,7 +125,7 @@ export async function batchRechargeXsatValidator() {
         // 7. Set transaction parameters
         const recipient = '0xbBbBbBbBbbbbBbbbbBbBbbBBbaB0894D80EE0D90';
         const inputTargetBalance = await input({ message: "Input target balance (BTC):" });
-        const targetBalance = ethers.parseUnits(inputTargetBalance);
+        const targetBalance = ethers.parseEther(inputTargetBalance);
         console.log(`Target balance: ${inputTargetBalance} BTC`);
 
         // 8. Iterate through each account and calculate the required recharge amount
@@ -137,7 +137,7 @@ export async function batchRechargeXsatValidator() {
             } else {
                 btcBalanceStr = btcBalanceStr.replace('BTC', '').trim();
             }
-            const balance = ethers.parseUnits(btcBalanceStr);
+            const balance = ethers.parseEther(btcBalanceStr);
             let rechargeAmount = targetBalance - balance;
 
             // If the difference is less than 10000 wei, no recharge is needed
@@ -287,7 +287,7 @@ export async function batchRegisterXsatValidator() {
 
         // 8. Set the transaction parameters (recipient address and transaction value).
         const recipient = '0xbBBbBbBbbbBBBbBbbBBbbBBBc3993d541Dc1b200';
-        const value = ethers.parseUnits("0.000001");
+        const value = ethers.parseEther("0.000001");
 
         // 9. Process each account individually.
         for (const accountName of satAccounts) {
