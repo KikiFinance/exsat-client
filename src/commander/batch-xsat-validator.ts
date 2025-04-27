@@ -275,25 +275,23 @@ export async function batchRegisterXsatValidator() {
         const provider = new ethers.JsonRpcProvider(EXSAT_EVM_RPC_URL);
         const wallet = feeWallet.connect(provider);
         console.log(`Connected wallet: ${wallet.address}`);
-
-        const balanceWei = await provider.getBalance(wallet.address);
-        console.log('Wallet balance:', ethers.formatEther(balanceWei), 'ETH');
         const network = await provider.getNetwork();
+
         console.log("Connected to network:", JSON.stringify(network));
 
-        // 7. Set fixed gas parameters
-        const FIXED_GAS_PRICE = ethers.parseUnits('0.05', 'gwei');    // 固定 gas price
-        const FIXED_GAS_LIMIT = 30000n;                              // 固定 gas limit
 
-        // 8. Get the initial nonce.
-        let currentNonce = await provider.getTransactionCount(wallet.address, 'pending');
+        // 7. Get the initial nonce and gas price.
+        let currentNonce = await provider.getTransactionCount(wallet.address, "pending");
+        const feeData = await provider.getFeeData();
+        const gasPrice = feeData.gasPrice;
 
-        // 9. Set the transaction parameters (recipient address and transaction value).
+        // 8. Set the transaction parameters (recipient address and transaction value).
         const recipient = '0xbBBbBbBbbbBBBbBbbBBbbBBBc3993d541Dc1b200';
-        const value = ethers.parseEther('0.000001');
+        const value = ethers.parseEther("0.0001");
 
-        // 10. Process each account individually.
+        // 9. Process each account individually.
         for (const accountName of satAccounts) {
+            // Determine the keystore path for the account.
             const baseName = accountName.replace('.sat', '');
             const accountKeystorePath = path.join(keystoreDir, `${baseName}_keystore.json`);
             const accountInfo = await getAccountInfo(accountKeystorePath, keystorePassword);
@@ -302,16 +300,14 @@ export async function batchRegisterXsatValidator() {
             }
 
             try {
-                // 10.1 Check on-chain account registration
+                // Check if the account is already registered; if not, broadcast the transaction.
                 const existingAccount = await getUserAccount(accountName);
                 if (!existingAccount) {
-                    // 10.1.1 Build data field
+                    // Build the transaction data as a hex-encoded string: "accountName-publicKey".
                     const dataString = `${accountName}-${accountInfo.publicKey}`;
                     const data = '0x' + Buffer.from(dataString, 'utf8').toString('hex');
-                    console.log(`Data for ${accountName}:`, data);
-                    console.log(`recipient: ${recipient}, value: ${value}`);
 
-                    // 10.1.2 Construct transaction with fixed gas
+                    // Build the transaction object with a specified nonce and gas price, and set gasLimit temporarily to 0.
                     const tx: any = {
                         from: wallet.address,
                         to: recipient,
@@ -319,26 +315,18 @@ export async function batchRegisterXsatValidator() {
                         data,
                         chainId: network.chainId,
                         nonce: currentNonce,
-                        gasPrice: FIXED_GAS_PRICE,
-                        gasLimit: FIXED_GAS_LIMIT,
+                        gasPrice,
+                        gasLimit: 23120n,
                     };
-                    console.log(`Registering ${accountName} with nonce=${currentNonce}`);
+                    console.log(`Registering ${accountName} value=${value} wei`);
+                    currentNonce++; // Increment nonce for the next transaction.
 
-                    // 10.1.2.1 Estimate gas
-                    try {
-                        const estimatedGas = await wallet.estimateGas(tx);
-                        console.log(`Estimated gas for ${accountName}: ${estimatedGas.toString()}`);
-                    } catch (estErr) {
-                        console.warn(`Gas estimation failed for ${accountName}:`, estErr);
-                    }
-
-                    currentNonce++;
-
-                    // 10.1.3 Sign and send
+                    // Populate any missing fields and sign the transaction.
                     const populatedTx = await wallet.populateTransaction(tx);
                     const signedTx = await wallet.signTransaction(populatedTx);
-                    console.log(`Signed tx for ${accountName}: ${signedTx}`);
+                    console.log(`Registering ${accountName}, signed transaction: ${signedTx}`);
 
+                    // Broadcast the signed transaction.
                     const response = await fetch(EXSAT_EVM_RPC_URL, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -351,17 +339,18 @@ export async function batchRegisterXsatValidator() {
                     });
                     const resJson = await response.json();
                     if (resJson.error) {
-                        console.error(`Failed to broadcast tx for ${accountName}:`, resJson.error);
+                        console.error(`Failed to broadcast transaction for ${accountName}:`, resJson.error);
                     } else {
-                        console.log(`Tx hash for ${accountName}: ${resJson.result}`);
+                        console.log(`Transaction broadcast for ${accountName}, hash: ${resJson.result}`);
                     }
                 } else {
-                    console.log(`Account ${accountName} already registered, skipping.`);
+                    console.log(`Account ${accountName} already registered, skipping transaction.`);
                 }
 
-                // 10.2 Off-chain validator registration
+                // Check if the validator is already registered.
                 const validatorInfo = await tableApi.getValidatorInfo(accountName);
                 if (!validatorInfo) {
+                    // Initialize ExsatApi and perform validator registration.
                     const exsatApi = new ExsatApi(accountInfo);
                     await exsatApi.initialize();
                     const xsatValidatorData = {
@@ -371,19 +360,23 @@ export async function batchRegisterXsatValidator() {
                         reward_addr: null,
                         commission_rate: null,
                     };
-                    await exsatApi.executeAction(ContractName.endrmng, 'newregvldtor', xsatValidatorData);
-                    console.log(`Validator ${accountName} registered on-chain.`);
+                    try {
+                        await exsatApi.executeAction(ContractName.endrmng, 'newregvldtor', xsatValidatorData);
+                        console.log(`Validator ${accountName} registered successfully.`);
+                    } catch (txError) {
+                        console.error(`Failed to register validator for ${accountName}:`, txError);
+                    }
                 } else {
-                    console.log(`Validator ${accountName} already exists, skipping.`);
+                    console.log(`Validator ${accountName} already registered, skipping registration.`);
                 }
-            } catch (err) {
-                console.error(`Error for ${accountName}:`, err);
+            } catch (error) {
+                console.error(`Error processing account ${accountName}:`, error);
             }
         }
 
         console.log("All accounts processed.");
     } catch (error) {
-        console.error("Batch registration error:", error);
+        console.error("Error in batch registration:", error);
     }
 }
 
