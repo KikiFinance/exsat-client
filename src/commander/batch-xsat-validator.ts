@@ -282,8 +282,11 @@ export async function batchRegisterXsatValidator() {
 
         // 7. Get the initial nonce and gas price.
         let currentNonce = await provider.getTransactionCount(wallet.address, "pending");
-        const feeData = await provider.getFeeData();
-        const gasPrice = feeData.gasPrice;
+        console.log(`Current nonce: ${currentNonce}`);
+        // const feeData = await provider.getFeeData();
+        // console.log(`feeData: ${currentNonce}`);
+
+        const gasPrice = ethers.parseEther("0.05");
 
         // 8. Set the transaction parameters (recipient address and transaction value).
         const recipient = '0xbBBbBbBbbbBBBbBbbBBbbBBBc3993d541Dc1b200';
