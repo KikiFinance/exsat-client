@@ -1,4 +1,4 @@
-import { generateMnemonic, mnemonicToSeedSync } from '@scure/bip39';
+import { generateMnemonic, mnemonicToSeedSync, validateMnemonic } from '@scure/bip39';
 import { wordlist } from '@scure/bip39/wordlists/english';
 import HDKey from 'hdkey';
 import { PrivateKey } from '@wharfkit/antelope';
@@ -288,6 +288,32 @@ function encodeIndex(index, fixedLen) {
 }
 
 export async function batchGenerateAccounts() {
+
+  const mode = await select({
+    message: 'Select action:',
+    choices: ['Generate new accounts (new mnemonic)', 'Restore accounts from mnemonic']
+  });
+
+  let mnemonic: string;
+  if (mode === 'Generate new accounts (new mnemonic)') {
+    mnemonic = generateMnemonic(wordlist);
+    console.log(`${Font.colorize(`\nYour new seed phrase: \n${mnemonic}`, Font.fgYellow)}\n`);
+    const confirm = await input({ message: "Confirm you have saved the seed phrase. Enter 'yes' to continue:" });
+    if (confirm.toLowerCase() !== 'yes') {
+      console.log(`${Font.fgYellow}${Font.bright}Seed phrase not saved. Cancelling.${Font.reset}`);
+      return;
+    }
+  } else {
+    let inputMnemonic = await input({ message: 'Enter your existing seed phrase:' });
+    while (!validateMnemonic(inputMnemonic.trim(), wordlist)) {
+      console.log(`${Font.fgRed}Invalid mnemonic. Please try again.${Font.reset}`);
+      inputMnemonic = await input({ message: 'Enter your existing seed phrase:' });
+    }
+    mnemonic = inputMnemonic.trim();
+  }
+
+  clearLines(3);
+
   const prefix = await input({ message: 'Enter account name prefix:' });
   const startIndex = parseInt(await input({ message: 'Enter account start index: ', default: '0' }), 10);
   const count = parseInt(await input({ message: 'Enter the number of accounts to generate:', default: '10' }), 10);
@@ -315,7 +341,6 @@ export async function batchGenerateAccounts() {
     passwordConfirmInput = await password({ message: 'Confirm your password: ', mask: '*' });
   }
 
-  const mnemonic = generateMnemonic(wordlist);
   console.log(`${Font.colorize(`\nYour seed phrase: \n${mnemonic}`, Font.fgYellow)}\n`);
   const phraseConfirm = await input({ message: "Confirm you have saved the seed phrase. Enter 'yes' to continue:" });
   if (phraseConfirm.toLowerCase() !== 'yes') {
