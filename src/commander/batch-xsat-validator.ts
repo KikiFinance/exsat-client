@@ -327,7 +327,6 @@ export async function batchRegisterXsatValidator() {
 
                     // Populate any missing fields and sign the transaction.
                     const populatedTx = await wallet.populateTransaction(tx);
-                    console.log(`Populated transaction: ${JSON.stringify(populatedTx)}`);
                     const signedTx = await wallet.signTransaction(populatedTx);
                     console.log(`Registering ${accountName}, signed transaction: ${signedTx}`);
 
