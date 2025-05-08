@@ -304,7 +304,7 @@ export async function batchGenerateAccounts() {
       return;
     }
   } else {
-    let inputMnemonic = await input({ message: 'Enter your existing seed phrase:' });
+    let inputMnemonic = await password({ message: 'Enter your existing seed phrase:', mask: '*' });
     while (!validateMnemonic(inputMnemonic.trim(), wordlist)) {
       console.log(`${Font.fgRed}Invalid mnemonic. Please try again.${Font.reset}`);
       inputMnemonic = await input({ message: 'Enter your existing seed phrase:' });
