@@ -318,7 +318,6 @@ export async function batchRegisterXsatValidator() {
                         data,
                         chainId: network.chainId,
                         nonce: currentNonce,
-                        gasPrice,
                         maxFeePerGas: gasPrice,
                         maxPriorityFeePerGas: gasPrice,
                         gasLimit: 23120n,
