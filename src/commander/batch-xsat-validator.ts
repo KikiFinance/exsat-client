@@ -120,7 +120,7 @@ export async function batchRechargeXsatValidator() {
 
         // 6. Retrieve the initial nonce and gasPrice
         let currentNonce = await provider.getTransactionCount(wallet.address, "pending");
-        const { gasPrice } = await provider.getFeeData();
+        const gasPrice = ethers.parseUnits("0.05", "gwei");
 
         // 7. Set transaction parameters
         const recipient = '0xbBbBbBbBbbbbBbbbbBbBbbBBbaB0894D80EE0D90';
@@ -182,7 +182,8 @@ export async function batchRechargeXsatValidator() {
                     data,
                     chainId: network.chainId,
                     nonce: currentNonce,
-                    gasPrice,
+                    maxFeePerGas: gasPrice,
+                    maxPriorityFeePerGas: gasPrice,
                     gasLimit: 21192n, // Fixed gas limit; adjust as needed
                 };
                 currentNonce++; // Update nonce
