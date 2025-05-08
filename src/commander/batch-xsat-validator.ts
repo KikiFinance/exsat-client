@@ -319,6 +319,8 @@ export async function batchRegisterXsatValidator() {
                         chainId: network.chainId,
                         nonce: currentNonce,
                         gasPrice,
+                        maxFeePerGas: gasPrice,
+                        maxPriorityFeePerGas: gasPrice,
                         gasLimit: 23120n,
                     };
                     console.log(`Registering ${accountName} value=${value} wei`);
