@@ -166,7 +166,6 @@ export async function batchRechargeXsatValidator() {
             console.log(`Insufficient wallet balance for recharge. Required: ${ethers.formatUnits(totalRechargeAmount + gasCost, "ether")} BTC`);
             const needRecharge = totalRechargeAmount + gasCost - walletBalance;
             console.log(`Need to recharge: ${ethers.formatUnits(needRecharge, "ether")} BTC`);
-            return;
         }
 
         // Confirm whether to proceed with recharging the accounts
