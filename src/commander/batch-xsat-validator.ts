@@ -128,6 +128,11 @@ export async function batchRechargeXsatValidator() {
         const targetBalance = ethers.parseEther(inputTargetBalance);
         console.log(`Target balance: ${inputTargetBalance} BTC`);
 
+        const inputRechargeStartAmount = await input({ message: "Input recharge start amount (BTC):" });
+        const rechargeStartAmount = ethers.parseEther(inputRechargeStartAmount);
+        console.log(`rechargeStartAmount: ${rechargeStartAmount} BTC`);
+        let totalRechargeAmount = 0n;
+
         // 8. Iterate through each account and calculate the required recharge amount
         const rechargeInfos: { accountName: string; rechargeAmount: bigint }[] = [];
         for (const accountName of satAccounts) {
@@ -141,7 +146,7 @@ export async function batchRechargeXsatValidator() {
             let rechargeAmount = targetBalance - balance;
 
             // If the difference is less than 10000 wei, no recharge is needed
-            if (rechargeAmount < 10000n) {
+            if (rechargeAmount < rechargeStartAmount) {
                 rechargeAmount = 0n;
             }
             console.log(
@@ -149,11 +154,12 @@ export async function batchRechargeXsatValidator() {
             );
             if (rechargeAmount > 0n) {
                 rechargeInfos.push({ accountName, rechargeAmount });
+                totalRechargeAmount += rechargeAmount;
             }
         }
 
         // Confirm whether to proceed with recharging the accounts
-        const rechargeConfirm = await input({ message: "Confirm to recharge accounts. Enter 'yes' to continue:" });
+        const rechargeConfirm = await input({ message: `Confirm to recharge accounts total ${totalRechargeAmount} BTC. Enter 'yes' to continue:` });
         if (rechargeConfirm.toLowerCase() !== 'yes') {
             console.log("Recharge cancelled.");
             return;
