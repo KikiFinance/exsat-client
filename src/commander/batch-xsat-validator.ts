@@ -158,6 +158,14 @@ export async function batchRechargeXsatValidator() {
             }
         }
         console.log(`Total recharge amount: ${ethers.formatUnits(totalRechargeAmount, "ether")} BTC`);
+        const walletBalance = await provider.getBalance(wallet.address);
+        console.log(`Wallet balance: ${ethers.formatUnits(walletBalance, "ether")} BTC`);
+        if (walletBalance < totalRechargeAmount) {
+            console.log(`Insufficient wallet balance for recharge. Required: ${ethers.formatUnits(totalRechargeAmount, "ether")} BTC`);
+            const needRecharge = totalRechargeAmount - walletBalance;
+            console.log(`Need to recharge: ${ethers.formatUnits(needRecharge, "ether")} BTC`);
+            return;
+        }
 
         // Confirm whether to proceed with recharging the accounts
         const rechargeConfirm = await input({ message: `Confirm to recharge accounts. Enter 'yes' to continue:` });
