@@ -157,9 +157,10 @@ export async function batchRechargeXsatValidator() {
                 totalRechargeAmount += rechargeAmount;
             }
         }
+        console.log(`Total recharge amount: ${ethers.formatUnits(totalRechargeAmount, "ether")} BTC`);
 
         // Confirm whether to proceed with recharging the accounts
-        const rechargeConfirm = await input({ message: `Confirm to recharge accounts total ${totalRechargeAmount} BTC. Enter 'yes' to continue:` });
+        const rechargeConfirm = await input({ message: `Confirm to recharge accounts. Enter 'yes' to continue:` });
         if (rechargeConfirm.toLowerCase() !== 'yes') {
             console.log("Recharge cancelled.");
             return;
