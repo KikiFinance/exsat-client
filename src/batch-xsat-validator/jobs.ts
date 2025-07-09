@@ -42,7 +42,7 @@ export class BatchValidatorJobs {
       }
       // If the account is a requested endorser or if the last consensus height is less than the current height, submit endorsement.
       const isQualifiedEndorser = this.isEndorserQualified(endorsement.requested_validators, accountName);
-      if (isQualifiedEndorser || validatorInfo.last_consensus_height < height) {
+      if (isQualifiedEndorser || (validatorInfo.latest_consensus_block < height && validatorInfo.active_flag !== 0)) {
         await this.submit(exsatApi, accountName, height, hash);
         return;
       }
